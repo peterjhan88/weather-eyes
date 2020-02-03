@@ -4,12 +4,12 @@
 # In[5]:
 
 
-# 인공신경망관련 패키지
+# packages for Keras
 from keras.callbacks import ModelCheckpoint
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten
 
-# 회귀분석 관련 패키지
+# packages for regression analysis
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error 
@@ -20,30 +20,30 @@ from sklearn.linear_model import Ridge
 from sklearn.linear_model import Lasso
 from scipy import stats
 
-# R2 값, 결정계수 계산
+# package for R2 value calculation
 from sklearn.metrics import r2_score
 
-# OLS회귀분석
+# packages for OLS regression analysis
 import statsmodels.api as sm
 
-# 시각화 패키지
+# packages for visualization
 from matplotlib import pyplot as plt
 import seaborn as sb
 
-# 데이터 처리를 위한 패키지
+# packages for data process
 import pandas as pd
 import numpy as np
 import math
 
-# 다중공선성(multicollinearity) 처리를 위한VIF 확인 패키지
+# packages for checking VIF to minimized multicollinearity
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 
 
-# 시각화
+# visualization
 import matplotlib
 import matplotlib.pyplot as plt
-# 한글 처리
+# process localization(allows Korean to shown in the graph)
 from matplotlib import rc, font_manager
 from pylab import rcParams
 
@@ -53,11 +53,11 @@ rc('font',family=font_name)
 # from matplotlib import rcParams
 # rcParams['font.family'] = 'NanumGothicCoding'
 
-# - 마이너스 사인 처리
+# let minus(-) sign to show in map
 matplotlib.rcParams['axes.unicode_minus'] = False
 
-# DeprecationWarning경고 무시
-# 향후 안쓰일 함수들을 이용해서 만들어져 있기 때문에 필요하다 없으면, 사방이 붉어진다.
+# Ignoring DeprecationWarning
+# Deprecated functions were used, thus, preventing warning showing up everywhere
 import warnings 
 warnings.filterwarnings('ignore')
 warnings.filterwarnings('ignore', category=DeprecationWarning)
@@ -73,28 +73,27 @@ from myLib.myRegression import *
 # In[6]:
 
 
-# 데이터 불러오기 (전처리 된 GS, 랄라블라, 날씨)
+# loading data, (pre-processed data of GS, Lalabla, Weather)
 gs = pd.read_csv('d:/project/contest/data/processed/p_gs.csv', parse_dates=['date'])
 lv = pd.read_csv('d:/project/contest/data/processed/p_lavla.csv', parse_dates=['date'])
-# w = pd.read_csv('d:/project/contest/data/processed/p_wUVair_seoul_category.csv', parse_dates=['date'], index_col=0)
 w = pd.read_csv('d:/project/contest/data/processed/날씨_ver071915.csv', parse_dates=['date'], index_col=0)
 sns_all = pd.read_csv('d:/project/contest/data/processed/social_all.csv', parse_dates=['date'])
 
-# GS/lv 서울시만
-# gs/lv 는 pvn_nm에 '서울특별시'로 들어와있다.
+# GS/lv just '서울'(Seoul) city
+# In gs/lv, pvn_nm is defined as '서울특별시'(Seoul Special Metropolitan City), not '서울'(Seoul)
 gs_seoul = gs.loc[gs.pvn_nm =='서울특별시']
 lv_seoul = lv.loc[lv.pvn_nm =='서울특별시']
-# 날씨에서는 지역코드로. 108=서울
+# loc number of Seoul city is 108
 w_seoul = w.loc[w['loc']==108]
 
-# 향후 편하게 쓰기위해
+# for future reference.
 cols_to_keep = ['date','bor_nm','gender','age_cd','category','qty']
 
-# 일일, 구단위, 상품별 판매량 종합
+# aggregate by day, 'gu' (smaller provincial unit than city), and product 
 gs_grouped = gs_seoul[cols_to_keep].groupby(by=['date','bor_nm','category']).sum().reset_index()
 lv_grouped = lv_seoul[cols_to_keep].groupby(by=['date','bor_nm','category']).sum().reset_index()
 
-# 일단위로 자료 종합(qty는 일일 합계)
+# grouped by day(qty is daily sum of product sales)
 day_gs_grouped = gs_grouped.groupby(by=['date','category']).sum().reset_index()
 day_lv_grouped = lv_grouped.groupby(by=['date','category']).sum().reset_index()
 
@@ -102,19 +101,19 @@ day_lv_grouped = lv_grouped.groupby(by=['date','category']).sum().reset_index()
 # In[7]:
 
 
-# '아이스크림'만 빼서 df생성
+# filter out to get only 'icrecream'
 item = '아이스크림'
 grouped_by = 'date'
 
-# 판매량과 날씨데이터 종합
+# sales and weather data joined(merged)
 day_gs_grouped_w_item = pd.merge(day_gs_grouped.loc[day_gs_grouped.category==item],w_seoul,on='date',how='left')
 day_lv_grouped_w_item = pd.merge(day_lv_grouped.loc[day_gs_grouped.category==item],w_seoul,on='date',how='left')
 
-# 판매량과 소셜데이터 종합
+# sales and social data joined(merged)
 day_gs_grouped_w_sns_item = pd.merge(day_lv_grouped_w_item, sns_all,on='date',how='left')
 day_lv_grouped_w_sns_item = pd.merge(day_lv_grouped_w_item, sns_all,on='date',how='left')
 
-# 일단 uv = 자외선 지수는 결측치가 많아서 제외
+# uv (ultra violet index) is excluded because no data was recorded for winter
 selected_cols = ['date', 'category', 'qty', 'temp', 'rain', 'cloud', 'wind','humid', 'hpa',
                  'sun_time', 'lgt_time', 'snow','rain_or_not','snow_or_not','미세', '초미세', '공기상태',
                  'SO2', 'CO', 'O3', 'NO2', 'PM10', 'PM25',
@@ -130,7 +129,7 @@ lv_day_w = day_lv_grouped_w_sns_item[selected_cols]
 # In[8]:
 
 
-# MAD적용
+# Median Absolute Deviation(MAD) outerlier eliminated
 gs_day_w['outlier'] = pd.DataFrame(mad_based_outlier(gs_day_w['qty']))
 gs_day_w = gs_day_w.loc[gs_day_w.outlier==False]
 
@@ -141,9 +140,8 @@ lv_day_w = lv_day_w.loc[lv_day_w.outlier==False]
 # In[9]:
 
 
-# list_col = ['temp', 'cloud', 'wind', 'lgt_time', 'PM10'] # +,'rain_or_not','snow_or_not'
 list_col = ['temp', 'cloud', 'wind','lgt_time',
-            'rain_or_not', 'snow_or_not', '공기상태'] #+'rain_or_not', 'snow_or_not'
+            'rain_or_not', 'snow_or_not', '공기상태'] #'공기상태' is a categorized air condition(how clean the air is)
 lowVIF(w,20,list_col)
 
 
@@ -153,8 +151,8 @@ lowVIF(w,20,list_col)
 train_data = gs_day_w.loc[gs_day_w.date.between('2016-01-01','2017-12-31')]
 test_data = gs_day_w.loc[gs_day_w.date.between('2018-01-01','2018-12-31')]
 
-# 3년치 데이터 분리 : 종속변수('qty': 판매량)와 독립변수(판매량 제외 나머지 전부)
-# 날씨 데이터만
+# seperated 3-year-worth data : dependent variable('qty') and all independent variable(all but 'qty')
+# seperating qty and other columns for weather data
 combined = gs_day_w.loc[:,list_col]
 target = gs_day_w.loc[:,'qty']
 Xy = pd.concat([target,combined], axis=1)
@@ -194,16 +192,17 @@ def get_cols_with_no_nans(df,col_type):
 num_cols = get_cols_with_no_nans(combined , 'num')
 cat_cols = get_cols_with_no_nans(combined , 'no_num')
 
-print ('수치형 자료 컬럼 갯수 :',len(num_cols))
-print ('오브젝트형 자료 컬럼 갯수 :',len(cat_cols))
+print ('Number of numeric type columns :',len(num_cols))
+print ('Number of object type columns :',len(cat_cols))
 
+# for convenience, even categorized(object) data also converted in to number (e.g. 'very good'=0 ~ 'very bad'=5)
 # 미리 편의를 위해 카테고리형(오브젝트)자료도 수치로 변환
 
 
 # In[68]:
 
 
-# seabonr패키지를 이용한 각 독립 변수의 시각화
+# visualizing each individual value using seabonr package
 combined = combined[num_cols + cat_cols]
 combined.hist(figsize = (12,10))
 plt.show()
@@ -227,14 +226,13 @@ plt.show()
 
 def oneHotEncode(df,colNames):
     for col in colNames:
-        # 해당 컬럼의 데이터 타입이 object란 소리는 숫자가 아니다 = 분류형 데이터
         if( df[col].dtype == np.dtype('object')):
-            # 더미 컬럼 생성
+            # creating dummy column
             dummies = pd.get_dummies(df[col],prefix=col)
-            # 원본 데이터에 이어 붙이기 axis=1 컬럼방향으로 
+            # concatenating to original df, in direction of axis=1 
             df = pd.concat([df,dummies],axis=1)
 
-            # 기존의 str형 컬럼 삭제
+            # deleting 'str' type columns
             df.drop([col],axis = 1 , inplace=True)
     return df
     
